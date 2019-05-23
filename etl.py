@@ -6,23 +6,37 @@ from sql_queries import *
 
 
 def process_song_file(cur, filepath):
-    # open song file
+    """ 
+    This function inserts data into the songs and artist dimension tables. 
+  
+    Parameters: 
+    cur:  postgres cursor
+    filepath:  filepath where data files are located
+    """
+    #open song file
     df = pd.read_json(filepath, dtype=False, lines=True)
     
     # insert song record
     song_data = df[['song_id', 'title', 'artist_id', 'year', 'duration']]
     song_data = song_data.values[0].tolist()
-    #print(song_data)
     cur.execute(song_table_insert, song_data)
     
     # insert artist record
-    artist_data = df[['artist_id', 'artist_name', 'artist_location', 'artist_latitude' , 'artist_longitude']]
+    artist_data = df[['artist_id','artist_name','artist_location','artist_latitude','artist_longitude']]
     artist_data = artist_data.values[0].tolist()
     #print(artist_data)
     cur.execute(artist_table_insert, artist_data)
 
 
 def process_log_file(cur, filepath):
+    """ 
+    This function inserts data into the time (dimension), users (dimension), 
+    and songplays (fact) tables. 
+  
+    Parameters: 
+    cur:  postgres cursor
+    filepath:  filepath where data files are located
+    """
     # open log file
     df = pd.read_json(filepath, dtype=False, lines=True)
 
@@ -56,18 +70,26 @@ def process_log_file(cur, filepath):
         # get songid and artistid from song and artist tables
         cur.execute(song_select, (row.song, row.artist, row.length))
         results = cur.fetchone()
-        
         if results:
             songid, artistid = results
         else:
             songid, artistid = None, None
 
         # insert songplay record
-        songplay_data = (index, row.ts, row.userId, row.level, songid, artistid, row.sessionId, row.location, row.userAgent)
+        songplay_data = (row.ts, row.userId, row.level, songid, artistid, row.sessionId, row.location, row.userAgent)
         cur.execute(songplay_table_insert, songplay_data)
 
 
 def process_data(cur, conn, filepath, func):
+    """ 
+    This function walks through json files in the data folder and inserts data into tables via sub functions.
+    
+    Parameters: 
+    cur (cursor object):  postgres cursor
+    conn (connection object): postgres connection
+    filepath:  filepath where data files are located
+    func:  function to call upon file iteration
+    """
     # get all files matching extension from directory
     all_files = []
     for root, dirs, files in os.walk(filepath):
@@ -87,6 +109,11 @@ def process_data(cur, conn, filepath, func):
 
 
 def main():
+    """ 
+    Main function that calls the process_data function to handle the song and log data files.
+    
+    Sets the postgres connection and cursor variable calls the process_data function with defined arguments
+    """
     conn = psycopg2.connect("host=127.0.0.1 dbname=sparkifydb user=student password=student")
     cur = conn.cursor()
 
